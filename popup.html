@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query Params</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Query Params</h1>
+      <div id="url-display" class="url-bar" title="Current URL"></div>
+    </header>
+
+    <div id="no-params" class="empty-state hidden">
+      <p>No query parameters found.</p>
+    </div>
+
+    <div id="params-container" class="hidden">
+      <div class="toolbar">
+        <span id="param-count" class="count-badge"></span>
+        <button id="copy-all-btn" class="btn btn-sm" title="Copy all as JSON">Copy All</button>
+        <button id="clear-btn" class="btn btn-sm btn-danger" title="Clear all params from URL">Clear All</button>
+      </div>
+
+      <ul id="params-list"></ul>
+    </div>
+
+    <div id="add-param" class="add-section">
+      <input id="new-key" type="text" placeholder="key" class="input-key">
+      <span class="sep">=</span>
+      <input id="new-value" type="text" placeholder="value" class="input-value">
+      <button id="add-btn" class="btn btn-primary">Add</button>
+    </div>
+
+    <div id="error-msg" class="error hidden"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
