@@ -1,22 +1,26 @@
-// Query Feature Parser - popup.js
+// Snatch URL - popup.js
 
-let currentUrl = null;
+// --- State ---
+// state = { base: URL, segments: string[], entries: { key, value }[] }
+let state = null;
 
-// --- Parsing ---
+// --- URL helpers ---
 
-function parseParams(url) {
+function parseUrl(url) {
   try {
     const u = new URL(url);
+    const segments = u.pathname.split('/').filter(s => s !== '');
     const entries = [];
     u.searchParams.forEach((value, key) => entries.push({ key, value }));
-    return { entries, base: u };
+    return { base: u, segments, entries };
   } catch {
     return null;
   }
 }
 
-function buildUrl(base, entries) {
+function buildUrl({ base, segments, entries }) {
   const u = new URL(base.href);
+  u.pathname = segments.length ? '/' + segments.join('/') : '/';
   u.search = '';
   entries.forEach(({ key, value }) => u.searchParams.append(key, value));
   return u.href;
@@ -33,25 +37,75 @@ function showError(msg) {
   setTimeout(() => el.classList.add('hidden'), 3000);
 }
 
-function setVisible(id, visible) {
-  $(id).classList.toggle('hidden', !visible);
-}
+// --- Render path ---
 
-// --- Render ---
-
-function render(entries, base) {
-  const list = $('params-list');
+function renderPath() {
+  const { segments } = state;
+  const list = $('path-list');
   list.innerHTML = '';
 
-  if (entries.length === 0) {
-    setVisible('params-container', false);
-    setVisible('no-params', true);
-    return;
-  }
+  $('path-count').textContent = `${segments.length} segment${segments.length !== 1 ? 's' : ''}`;
+  $('no-path').classList.toggle('hidden', segments.length > 0);
 
-  setVisible('no-params', false);
-  setVisible('params-container', true);
-  $('param-count').textContent = `${entries.length} param${entries.length !== 1 ? 's' : ''}`;
+  segments.forEach((seg, idx) => {
+    const li = document.createElement('li');
+    li.className = 'param-row';
+    li.dataset.idx = idx;
+
+    const idxEl = document.createElement('span');
+    idxEl.className = 'path-index';
+    idxEl.textContent = idx;
+
+    const sep = document.createElement('span');
+    sep.className = 'sep';
+    sep.textContent = '/';
+
+    const segEl = document.createElement('input');
+    segEl.type = 'text';
+    segEl.value = decodeURIComponent(seg);
+    segEl.className = 'param-value path-seg';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-icon';
+    copyBtn.title = 'Copy segment';
+    copyBtn.textContent = '⎘';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-icon btn-danger';
+    delBtn.title = 'Delete segment';
+    delBtn.textContent = '✕';
+
+    segEl.addEventListener('change', () => {
+      const i = parseInt(li.dataset.idx, 10);
+      state.segments[i] = encodeURIComponent(segEl.value.trim());
+      updateTabUrl(buildUrl(state));
+    });
+
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(decodeURIComponent(seg))
+        .catch(() => showError('Clipboard access denied.'));
+    });
+
+    delBtn.addEventListener('click', () => {
+      state.segments.splice(idx, 1);
+      updateTabUrl(buildUrl(state));
+      renderPath();
+    });
+
+    li.append(idxEl, sep, segEl, copyBtn, delBtn);
+    list.appendChild(li);
+  });
+}
+
+// --- Render query ---
+
+function renderQuery() {
+  const { entries } = state;
+  const list = $('query-list');
+  list.innerHTML = '';
+
+  $('query-count').textContent = `${entries.length} param${entries.length !== 1 ? 's' : ''}`;
+  $('no-query').classList.toggle('hidden', entries.length > 0);
 
   entries.forEach(({ key, value }, idx) => {
     const li = document.createElement('li');
@@ -62,7 +116,6 @@ function render(entries, base) {
     keyEl.type = 'text';
     keyEl.value = key;
     keyEl.className = 'param-key';
-    keyEl.dataset.field = 'key';
 
     const sep = document.createElement('span');
     sep.className = 'sep';
@@ -72,7 +125,6 @@ function render(entries, base) {
     valEl.type = 'text';
     valEl.value = value;
     valEl.className = 'param-value';
-    valEl.dataset.field = 'value';
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'btn btn-icon';
@@ -84,18 +136,14 @@ function render(entries, base) {
     delBtn.title = 'Delete param';
     delBtn.textContent = '✕';
 
-    // Inline edit: update URL on blur
-    [keyEl, valEl].forEach(input => {
-      input.addEventListener('change', () => {
-        const row = input.closest('.param-row');
-        const i = parseInt(row.dataset.idx, 10);
-        if (input.dataset.field === 'key') {
-          entries[i].key = input.value.trim();
-        } else {
-          entries[i].value = input.value;
-        }
-        updateTabUrl(buildUrl(base, entries));
-      });
+    keyEl.addEventListener('change', () => {
+      state.entries[idx].key = keyEl.value.trim();
+      updateTabUrl(buildUrl(state));
+    });
+
+    valEl.addEventListener('change', () => {
+      state.entries[idx].value = valEl.value;
+      updateTabUrl(buildUrl(state));
     });
 
     copyBtn.addEventListener('click', () => {
@@ -103,9 +151,9 @@ function render(entries, base) {
     });
 
     delBtn.addEventListener('click', () => {
-      entries.splice(idx, 1);
-      updateTabUrl(buildUrl(base, entries));
-      render(entries, base);
+      state.entries.splice(idx, 1);
+      updateTabUrl(buildUrl(state));
+      renderQuery();
     });
 
     li.append(keyEl, sep, valEl, copyBtn, delBtn);
@@ -119,18 +167,12 @@ function updateTabUrl(newUrl) {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
     if (!tab) return;
     chrome.tabs.update(tab.id, { url: newUrl });
-    currentUrl = newUrl;
   });
 }
 
 function loadCurrentTab() {
   chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-    if (!tab || !tab.url) {
-      showError('Cannot access this tab.');
-      return;
-    }
-
-    currentUrl = tab.url;
+    if (!tab || !tab.url) { showError('Cannot access this tab.'); return; }
 
     const urlBar = $('url-display');
     try {
@@ -141,43 +183,37 @@ function loadCurrentTab() {
       urlBar.textContent = tab.url;
     }
 
-    const parsed = parseParams(tab.url);
-    if (!parsed) {
-      showError('Invalid URL.');
-      return;
-    }
+    state = parseUrl(tab.url);
+    if (!state) { showError('Invalid URL.'); return; }
 
-    render(parsed.entries, parsed.base);
+    renderPath();
+    renderQuery();
 
-    // Wire up toolbar buttons with current entries/base
     $('copy-all-btn').onclick = () => {
-      const obj = Object.fromEntries(parsed.entries.map(({ key, value }) => [key, value]));
+      const obj = Object.fromEntries(state.entries.map(({ key, value }) => [key, value]));
       navigator.clipboard.writeText(JSON.stringify(obj, null, 2))
         .catch(() => showError('Clipboard access denied.'));
     };
 
     $('clear-btn').onclick = () => {
-      parsed.entries.length = 0;
-      updateTabUrl(buildUrl(parsed.base, []));
-      render([], parsed.base);
+      state.entries.length = 0;
+      updateTabUrl(buildUrl(state));
+      renderQuery();
     };
 
     $('add-btn').onclick = () => {
       const key = $('new-key').value.trim();
       const value = $('new-value').value;
       if (!key) { showError('Key cannot be empty.'); return; }
-      parsed.entries.push({ key, value });
-      updateTabUrl(buildUrl(parsed.base, parsed.entries));
-      render(parsed.entries, parsed.base);
+      state.entries.push({ key, value });
+      updateTabUrl(buildUrl(state));
+      renderQuery();
       $('new-key').value = '';
       $('new-value').value = '';
     };
 
-    // Allow Enter in the add form
     [$('new-key'), $('new-value')].forEach(input => {
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') $('add-btn').click();
-      });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') $('add-btn').click(); });
     });
   });
 }

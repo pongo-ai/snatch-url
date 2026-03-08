@@ -3,28 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Query Params</title>
+  <title>Snatch URL</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="app">
     <header>
-      <h1>Query Params</h1>
+      <h1>Snatch URL</h1>
       <div id="url-display" class="url-bar" title="Current URL"></div>
     </header>
 
-    <div id="no-params" class="empty-state hidden">
-      <p>No query parameters found.</p>
-    </div>
+    <div id="scroll-body">
+      <!-- Path section -->
+      <section id="path-section">
+        <div class="section-header">
+          <span class="section-label">PATH</span>
+          <span id="path-count" class="count-badge"></span>
+        </div>
+        <div id="no-path" class="empty-state hidden"><p>No path segments.</p></div>
+        <ul id="path-list"></ul>
+      </section>
 
-    <div id="params-container" class="hidden">
-      <div class="toolbar">
-        <span id="param-count" class="count-badge"></span>
-        <button id="copy-all-btn" class="btn btn-sm" title="Copy all as JSON">Copy All</button>
-        <button id="clear-btn" class="btn btn-sm btn-danger" title="Clear all params from URL">Clear All</button>
-      </div>
-
-      <ul id="params-list"></ul>
+      <!-- Query section -->
+      <section id="query-section">
+        <div class="section-header">
+          <span class="section-label">QUERY</span>
+          <span id="query-count" class="count-badge"></span>
+          <button id="copy-all-btn" class="btn btn-sm" title="Copy all as JSON">Copy All</button>
+          <button id="clear-btn" class="btn btn-sm btn-danger" title="Clear all query params">Clear All</button>
+        </div>
+        <div id="no-query" class="empty-state hidden"><p>No query parameters.</p></div>
+        <ul id="query-list"></ul>
+      </section>
     </div>
 
     <div id="add-param" class="add-section">
